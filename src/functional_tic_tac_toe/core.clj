@@ -1,81 +1,118 @@
-(ns functional-tic-tac-toe.core
-  (:gen-class))
+object FnTicTacToe {
+  def newGame():String = (0 until 9).map(_ => " ").mkString
 
-(defn new-game []
-  [(into [] (map str (range 1 10))) "X"])
+  def legalInput(input: String):Boolean = {
+    (0 until 9).map(_.toString).count(_ == input) != 0
+  }
 
-(defn- legal-input? [input]
-  (some (partial = input) #{"1" "2" "3" "4" "5" "6" "7" "8" "9"}))
+  def move(board: String, player: Char, square: Int):String = {
+    board.slice(0, square) + player + board.slice(square+1, 9)
+  }
 
-(defn move [[board player :as game] move]
-  (if (legal-input? move)
-    (let [board-index (- (Integer/parseInt move) 1)]
-      (if (= (nth board board-index) move)
-        [(assoc board board-index player)
-         (if (= player "X") "O" "X")]
-        game)) game))
+  val topBottom = "\n   |   |   \n"
+  val verticalSpacer = "\n-----------\n"
 
-(defn- check-horizontal [board]
-  (let [winner (for [x [0 3 6]]
-                 (let [first (get board x)]
-                   (if (and (= first (get board (+ x 1)))
-                            (= first (get board (+ x 2))))
-                     first "")))]
-    (remove empty? winner)))
+  def checkHorizontal(board:String):Char = {
+    val winnersList = (0 until 9 by 3).map(x => {
+      if(board(x) == board(x+1) && board(x) == board(x+2))
+        board(x)
+      else
+        ' '
+    }).filter(_ != ' ')
+    if(winnersList.size != 0)
+      winnersList(0)
+    else
+      ' '
+  }
 
-(defn- check-vertical [board]
-  (let [winner (for [x [0 1 2]]
-                 (let [first (get board x)]
-                   (if (and (= first (get board (+ x 3)))
-                            (= first (get board (+ x 6))))
-                     first "")))]
-    (remove empty? winner)))
+  def checkVertical(board:String):Char = {
+    val winnersList = (0 until 3).map(x => {
+      if(board(x) == board(x+3) && board(x) == board(x+6))
+        board(x)
+      else
+        ' '
+    }).filter(_ != ' ')
+    if(winnersList.size != 0)
+      winnersList(0)
+    else
+      ' '
+  }
 
-(defn- check-diaganal [board]
-  (let [center (get board 4)]
-    (cond
-     (and (= center (get board 0)) (= center (get board 8))) [center]
-     (and (= center (get board 2)) (= center (get board 6))) [center]
-     :default nil)))
+  def checkDiagonal(board:String):Char = {
+    val center = board(4)
+    if((board(0) == center && board(8) == center) ||
+      (board(2) == center && board(6) == center))
+      center
+    else
+      ' '
+  }
 
-(defn check-winner [[board _]]
-  (first (concat (check-horizontal board)
-                 (check-vertical board)
-                 (check-diaganal board))))
+  def checkWinner(board:String):Char = {
+    val winnersList = 
+      ("" +
+        checkHorizontal(board) +
+        checkVertical(board) +
+        checkDiagonal(board)).filter(_ != ' ')
+    if(winnersList.size != 0)
+      winnersList(0)
+    else
+      ' '
+  }
 
-(defn board-full? [[board player]]
-  (= 2 (count (set board))))
+  def boardFull(board:String):Boolean = {
+    board.count(_ == ' ') == 0
+  }
 
-(defn game-over? [[board player]]
-  (or (not (empty? (check-winner [board player])))
-      (board-full? [board player])))
+  def gameOver(board:String):Boolean = {
+    boardFull(board) || checkWinner(board) != ' '
+  }
 
-(def top-bottom "\n   |   |   \n")
+  def rowToString(board:String, rowNum:Int) = {
+    val (i0, i1, i2) = (0 + rowNum*3, 1 + rowNum*3, 2 + rowNum*3)
+    val (a, b, c) = (board(i0), board(i1), board(i2))
+    " " + a + " | " +  b  + " | " + c + " " 
+  }
 
-(defn row-to-string [board row-num]
-  (let [[a b c] (take 3 (drop (* (- row-num 1) 3) board))]
-    (str " " a " | " b " | " c )))
+  def renderBoard(board:String):String = {
+    topBottom +
+    rowToString(board, 0) +
+    verticalSpacer +
+    rowToString(board, 1) +
+    verticalSpacer +
+    rowToString(board, 2) +
+    topBottom
+  }
 
-(def vertical-spacer "\n-----------\n")
+  def getMove(player: Char):Int = {
+    println("Enter # of square to move " + player + ":")
+    val input = readLine
+    if(legalInput(input))
+      input.toInt
+    else
+      getMove(player)
+  }
 
-(defn render-board [[board player]]
-  (str top-bottom (row-to-string board 1) vertical-spacer
-       (row-to-string board 2)   vertical-spacer
-       (row-to-string board 3) top-bottom))
+  def playGame(board:String, player:Char):Unit = {
+    println(board)
+    println(renderBoard(board))
+    if(gameOver(board)) {
+      val winner = checkWinner(board)
+      if(winner == 'X' || winner == 'O')
+        println("Congrats to " + winner)
+      else
+        println ("Tie game")
+    }
+    else {
+      val newBoard = move(board, player, getMove(player))
+      val newPlayer = player match {
+        case 'X' => 'O'
+        case _ => 'X'
+      }
+      playGame(newBoard, newPlayer)
+    }
+  }
 
-(defn get-move []
-  (do
-    (println "Enter # of square to move")
-    (read-line)))
-
-(defn play-game [the-game]
-  (loop [game the-game]
-    (println (render-board game))
-    (if (game-over? game)
-          (if-let [winner (check-winner game)]
-            (println (str "Congrats to " winner))
-            (println "tie game"))
-          (recur (move game (get-move))))))
-
-(defn -main [& args]
-  (play-game (new-game)))
+  def main(args:Array[String]) = {
+    playGame(newGame, 'X')
+  }
+}
